@@ -1,0 +1,106 @@
+//ARDINO CODE 
+#include <Servo.h>
+
+// Define 8 Servo Objects
+Servo rootServo, armA1Servo, armA1_2Servo, armA2Servo, armBServo, wristAServo, wristBServo, gripperServo;
+
+// Tracking positions for precision standard servos
+int posA1 = 90; 
+int posA2 = 90;
+int posWristA = 90;
+int posGrip = 0; // Gripper starts open
+
+void setup() {
+  Serial.begin(9600);
+  
+  rootServo.attach(3);    
+  armA1Servo.attach(4);   
+  armA1_2Servo.attach(7); 
+  armA2Servo.attach(5);   
+  armBServo.attach(6);    
+  wristAServo.attach(9);  
+  wristBServo.attach(10); 
+  gripperServo.attach(11);
+
+  goHome();
+  Serial.println("SYSTEM_READY");
+}
+
+void goHome() {
+  // Stop Continuous Motors (90 is stop)
+  rootServo.write(90);
+  armBServo.write(90);
+  wristBServo.write(90);
+  
+  // Reset Precision Motors
+  posA1 = 90;
+  posA2 = 90;
+  posWristA = 90;
+  posGrip = 0;
+  
+  armA1Servo.write(posA1);
+  armA1_2Servo.write(180 - posA1); 
+  armA2Servo.write(posA2);
+  wristAServo.write(posWristA);
+  gripperServo.write(posGrip);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char joint = Serial.read();      
+    int val = Serial.parseInt();   
+
+    if (joint == 'H') goHome();
+    
+    // Joint '1': Dual A1 Mirrored
+    else if (joint == '1') {
+      moveDualSlow(armA1Servo, armA1_2Servo, posA1, val);
+      posA1 = val;
+    }
+    // Joint '2': Arm A2
+    else if (joint == '2') {
+      moveSlow(armA2Servo, posA2, val);
+      posA2 = val;
+    }
+    // Joint 'W': Wrist A
+    else if (joint == 'W') {
+      moveSlow(wristAServo, posWristA, val);
+      posWristA = val;
+    }
+    // Joint 'G': Gripper
+    else if (joint == 'G') {
+      moveSlow(gripperServo, posGrip, val);
+      posGrip = val;
+    }
+    // Continuous Motors (R, B, V)
+    else if (joint == 'R') moveContinuous(rootServo, val);
+    else if (joint == 'B') moveContinuous(armBServo, val);
+    else if (joint == 'V') moveContinuous(wristBServo, val);
+  }
+}
+
+// Moves two motors simultaneously in opposite directions
+void moveDualSlow(Servo &s1, Servo &s2, int start, int end) {
+  int step = (start < end) ? 1 : -1;
+  for (int i = start; i != end + step; i += step) {
+    s1.write(i);
+    s2.write(180 - i);
+    delay(20); 
+  }
+}
+
+// Moves one motor smoothly
+void moveSlow(Servo &s, int start, int end) {
+  int step = (start < end) ? 1 : -1;
+  for (int i = start; i != end + step; i += step) {
+    s.write(i);
+    delay(20);
+  }
+}
+
+void moveContinuous(Servo &s, int speed) {
+  s.write(speed);   
+  delay(500); 
+  s.write(90); 
+}
+
